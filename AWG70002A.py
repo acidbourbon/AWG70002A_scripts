@@ -57,7 +57,12 @@ def spice_float(argument):
 
 
 
-
+# Method to convert a 32bit float to a HEX number
+def float_to_hex(f):
+    if f == 0:
+        return '0x00000000'
+    else:
+        return hex(struct.unpack('<I', struct.pack('<f', f))[0])
 
 
   
@@ -77,9 +82,9 @@ def open_session(ip):
   print("connect to device ...")
   #session = sock.SCPI_sock_connect(ip)
   session = vxi11.Instrument('TCPIP::{}::INSTR'.format(ip))
-  session.timeout = 2000
+  session.timeout = 500
   session.clear()
-  session.chunk_size = 102400
+  #session.chunk_size = 102400
   print("*IDN?")
   idn_str = session.ask("*idn?")
   print(idn_str)
@@ -161,6 +166,9 @@ def prev_int_mult_128(n):
 
   
 def program_trace(xdata,ydata,**kwargs):
+  
+  stop()
+  
   if (not("session" in local_objects.keys())):
     raise NameError("there is no running communication session with AWG!")
   session = local_objects["session"]
@@ -224,19 +232,24 @@ def program_trace(xdata,ydata,**kwargs):
   target_y[target_y < -0.5] = -0.5
 
 
-  #volt        = float(kwargs.get("volt",0.5))
+  ##volt        = float(kwargs.get("volt",0.5))
+  #offset = 0
+  #volt = np.max(np.abs(target_y))
+  #idle_val = idle_val/volt
+  #target_y = target_y*127./volt
+  #volt = volt*2
+  
   offset = 0
   volt = np.max(np.abs(target_y))
-  idle_val = idle_val/volt
-  target_y = target_y*127./volt
   volt = volt*2
+
 
   if(invert):
     idle_val = -idle_val
     target_y = -target_y
 
 
-  idle_val_dac = int(idle_val*127)
+  idle_val_dac = idle_val
 
   #n_delay = int(delay*sample_rate) 
   n_offset = int(offset*sample_rate) 
@@ -254,38 +267,76 @@ def program_trace(xdata,ydata,**kwargs):
   n_ = np.min([n,sample_len])
   
   dataList[0:n_] = target_y[0:n_]
-  dataList = dataList.astype(np.int).tolist()
+  #dataList = dataList.astype(np.int).tolist()
+  dataList = dataList.tolist()
   
-  dataString = ",".join(map(str,dataList))
-  cmdString = ":TRAC{:d}:DATA 1,{:d},{}".format(trace,n_offset,dataString)
+  #dataString = ",".join(map(str,dataList))
+  #cmdString = ":TRAC{:d}:DATA 1,{:d},{}".format(trace,n_offset,dataString)
   
   
   
   #print(session.ask(":TRAC{:d}:CAT?".format(trace)))
-  session.write(":TRAC{:d}:DEL:ALL".format(trace))
-  session.write(":TRAC{:d}:DEF 1,{:d},{:d}".format(trace,mem_size,idle_val_dac))
+  #session.write(":TRAC{:d}:DEL:ALL".format(trace))
+  #session.write(":TRAC{:d}:DEF 1,{:d},{:d}".format(trace,mem_size,idle_val_dac))
   
-  #delete all traces with wrong mem_size
-  for i in range(1,5):
-    cat_answer = session.ask(":TRAC{:d}:CAT?".format(i))
-    cat_answer.replace("\n","")
-    cat_answer.replace("\r","")
-    cat_answer.replace(" ","")
-    #print(cat_answer)
-    if( (cat_answer != "1,{:d}".format(mem_size))  and (cat_answer != "0,0" )): 
-      print("delete trace {:d}, because wrong mem size / wrong period".format(i))
-      session.write(":TRAC{:d}:DEL:ALL".format(i))
+  ##delete all traces with wrong mem_size
+  #for i in range(1,5):
+    #cat_answer = session.ask(":TRAC{:d}:CAT?".format(i))
+    #cat_answer.replace("\n","")
+    #cat_answer.replace("\r","")
+    #cat_answer.replace(" ","")
+    ##print(cat_answer)
+    #if( (cat_answer != "1,{:d}".format(mem_size))  and (cat_answer != "0,0" )): 
+      #print("delete trace {:d}, because wrong mem size / wrong period".format(i))
+      #session.write(":TRAC{:d}:DEL:ALL".format(i))
   
   
   #send data
   print("sending data ...")
-  session.write(cmdString)
+  #session.write(cmdString)
   #print(session.ask(":TRAC1:DATA? 1,0,512"))
+  
+  substring = ""
+  datastring = ""
+  recordLength = 2400    # [samples] (min. 2400 samples required)
+  
+  leadingZeroes = 5      # [samples]
+  maxWaveformLength = leadingZeroes + 2000
 
-  print("set output voltage ...")
-  session.write(":VOLT{:d} {:3.3f}".format(trace,volt))
+  for i in range(maxWaveformLength):
+      hexstring = ""
+      if(i < len(dataList)):
+        hexval = float_to_hex(dataList[i]) # float to HEX
+        hexstring = hexval[2:] # discard HEX prefix
+      else:
+        hexval = float_to_hex(0) # float to HEX
+        hexstring = hexval[2:] # discard HEX prefix
+        
+      for j in range(3,-1,-1): # split into 4 times 8 bit and convert to char
+          substring = hexstring[j*2:j*2+2]
+          datastring += chr(int(substring,16)) # add chars to data string
+          
+  
+  # Assemble command (send waveform data)
+  commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength), datastring)
+  print(commandString)
 
-  print("Output {:d} on ...".format(trace))
-  session.write(":OUTP{:d} ON".format(trace))
+  # Open socket, create waveform, send data, read back, start playing waveform and close socket
+  session.write("WLIST:WAVEFORM:DELETE ALL")
+  session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, recordLength))
+  session.write( commandString)
+  
+  if(0):
+    print("read back:")
+    print("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength))
+    print(session.ask("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength)))
+
+  
+
+  #print("set output voltage ...")
+  #session.write(":VOLT{:d} {:3.3f}".format(trace,volt))
+
+  #print("Output {:d} on ...".format(trace))
+  #session.write(":OUTP{:d} ON".format(trace))
   
   
