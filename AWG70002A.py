@@ -56,15 +56,6 @@ def spice_float(argument):
 
 
 
-
-# Method to convert a 32bit float to a HEX number
-def float_to_hex(f):
-    if f == 0:
-        return '0x00000000'
-    else:
-        return hex(struct.unpack('<I', struct.pack('<f', f))[0])
-
-
   
 
 
@@ -253,9 +244,10 @@ def program_trace(xdata,ydata,**kwargs):
   #target_y = target_y*127./volt
   #volt = volt*2
   
-  offset = 0
-  volt = np.max(np.abs(target_y))
-  volt = volt*2
+  #volt = np.max(np.abs(target_y))
+  #volt = volt*2
+  target_y = target_y/.25
+  idle_val = idle_val/.25
 
 
   if(invert):
