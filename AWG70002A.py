@@ -313,10 +313,10 @@ def program_trace(xdata,ydata,**kwargs):
   
   substring = ""
   datastring = ""
-  recordLength = 2400    # [samples] (min. 2400 samples required)
+  #recordLength = 2400    # [samples] (min. 2400 samples required)
   
   #leadingZeroes = 5      # [samples]
-  maxWaveformLength = 2400
+  maxWaveformLength = sample_len
 
   for i in range(maxWaveformLength):
       hexstring = ""
@@ -338,8 +338,8 @@ def program_trace(xdata,ydata,**kwargs):
 
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
   session.write("WLIST:WAVEFORM:DELETE ALL")
-  session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, recordLength))
-  session.write( commandString)
+  session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
+  #session.write( commandString)
   
   if(0):
     print("read back:")
