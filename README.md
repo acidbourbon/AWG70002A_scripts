@@ -41,8 +41,6 @@ example usage:
 ```
 ./pulser.py trace=1 width=10n period=50n
 ```
-- if no "period=" argument is given, the AWG will use its maximum memory depth, resulting
-in the maximum sample length of circa 4us (at maximum sampling rate = 65GHz).
 
 optional parameters/standard values:
 ```
