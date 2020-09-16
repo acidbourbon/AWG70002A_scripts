@@ -283,7 +283,8 @@ def program_trace(xdata,ydata,**kwargs):
   
   dataList[0:n_] = target_y[0:n_]
   #dataList = dataList.astype(np.int).tolist()
-  dataList = dataList.tolist()
+  #dataList = dataList.tolist()
+  dataList = dataList.astype('float32')
   
   #dataString = ",".join(map(str,dataList))
   #cmdString = ":TRAC{:d}:DATA 1,{:d},{}".format(trace,n_offset,dataString)
@@ -319,13 +320,8 @@ def program_trace(xdata,ydata,**kwargs):
   maxWaveformLength = sample_len
 
   for i in range(maxWaveformLength):
-      hexstring = ""
-      if(i < len(dataList)):
-        hexval = float_to_hex(dataList[i]) # float to HEX
-        hexstring = hexval[2:] # discard HEX prefix
-      else:
-        hexval = float_to_hex(0) # float to HEX
-        hexstring = hexval[2:] # discard HEX prefix
+      hexval = float_to_hex(dataList[i]) # float to HEX
+      hexstring = hexval[2:] # discard HEX prefix
         
       for j in range(3,-1,-1): # split into 4 times 8 bit and convert to char
           substring = hexstring[j*2:j*2+2]
@@ -339,7 +335,7 @@ def program_trace(xdata,ydata,**kwargs):
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
   session.write("WLIST:WAVEFORM:DELETE ALL")
   session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
-  #session.write( commandString)
+  session.write( commandString)
   
   if(0):
     print("read back:")
