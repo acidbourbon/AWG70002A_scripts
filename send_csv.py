@@ -20,9 +20,9 @@ def send_csv(**kwargs):
   yscale      = float(kwargs.get("yscale",1))
   xscale      = float(kwargs.get("xscale",1))
   delay       = float(kwargs.get("delay",0e-9))
-  sample_rate = int(float(kwargs.get("sample_rate",65e9)))
+  sample_rate = int(float(kwargs.get("sample_rate",8e9)))
   invert      = int(kwargs.get("invert",0))
-  ip          = str(kwargs.get("ip","192.168.0.203"))
+  ip          = str(kwargs.get("ip","192.168.0.198"))
   
   period      = float(kwargs.get("period",0))
 
