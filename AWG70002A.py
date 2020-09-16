@@ -15,7 +15,6 @@ from scipy import interpolate
 
 local_objects = {}
 
-waveformName = 'ExtWaveform2400'
 
 
 
@@ -107,8 +106,6 @@ def run():
   session = local_objects["session"]
  
   print("RUN!")
-  session.write("SOURCE1:CASSET:WAVEFORM \"{}\"".format(waveformName))
-  session.write("SOURCE2:CASSET:WAVEFORM \"{}\"".format(waveformName))
   session.write("AWGControl:RUN")
   session.write("OUTPUT1:STATE 1")
   session.write("OUTPUT2:STATE 1")
@@ -188,8 +185,10 @@ def program_trace(xdata,ydata,**kwargs):
   sample_rate = int(float(kwargs.get("sample_rate",8e9)))
   invert      = int(kwargs.get("invert",0))
   period      = float(kwargs.get("period",0))
+
   
-  
+  waveformName = "ExtWaveformCh{:d}".format(trace)
+
   
   if(period != 0):
     #mem_size = next_int_mult_128(int(period * sample_rate))
@@ -259,7 +258,6 @@ def program_trace(xdata,ydata,**kwargs):
   
   substring = ""
   datastring = ""
-  #recordLength = 2400    # [samples] (min. 2400 samples required)
   data = bytearray()
   
 
@@ -271,25 +269,20 @@ def program_trace(xdata,ydata,**kwargs):
     
   commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength))# + datastring
 
-  print(commandString)
+  #print(commandString)
   
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
-  session.write("WLIST:WAVEFORM:DELETE ALL")
+  session.write("WLIST:WAVEFORM:DELETE {}".format(waveformName))
   session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
   session.write_raw( str.encode(commandString) + data )
-  #session.write_raw( str.encode(datastring) )
   
-  if(0):
-    print("read back:")
-    print("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength))
-    print(session.ask("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength)))
+  #if(0):
+    #print("read back:")
+    #print("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength))
+    #print(session.ask("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength)))
 
   
-
-  #print("set output voltage ...")
-  #session.write(":VOLT{:d} {:3.3f}".format(trace,volt))
-
-  #print("Output {:d} on ...".format(trace))
-  #session.write(":OUTP{:d} ON".format(trace))
+  session.write("SOURCE{:d}:CASSET:WAVEFORM \"{}\"".format(trace,waveformName))
+  #session.write("SOURCE2:CASSET:WAVEFORM \"{}\"".format(waveformName))
   
   
