@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 
-#import SCPI_socket as sock
-
 
 import vxi11
 
@@ -21,22 +19,6 @@ waveformName = 'ExtWaveform2400'
 
 
 
-
-def reverse_8bits(n):
-        result = 0
-        for i in range(8):
-            result <<= 1
-            result |= n & 1
-            n >>= 1
-        return result
-      
-def reverse_32bits(n):
-        result = 0
-        for i in range(32):
-            result <<= 1
-            result |= n & 1
-            n >>= 1
-        return result
 
 
 def spice_float(argument):
@@ -327,31 +309,20 @@ def program_trace(xdata,ydata,**kwargs):
   
   #send data
   print("sending data ...")
-  #session.write(cmdString)
-  #print(session.ask(":TRAC1:DATA? 1,0,512"))
+
   
   substring = ""
   datastring = ""
   #recordLength = 2400    # [samples] (min. 2400 samples required)
-  #data = []
+  data = bytearray()
   
-  #leadingZeroes = 5      # [samples]
+
   maxWaveformLength = sample_len
 
   for i in range(maxWaveformLength):
-      hexval = float_to_hex(dataList[i]) # float to HEX
-      hexstring = hexval[2:] # discard HEX prefix
-        
-      for j in range(3,-1,-1): # split into 4 times 8 bit and convert to char
-      #for j in range(0,4): # split into 4 times 8 bit and convert to char
-          substring = hexstring[j*2:j*2+2]
-          datastring += chr(int(substring,16)) # add chars to data string
-          #data  += [int(substring,16)] # add chars to data string
-      #datastring += chr(reverse_8bits(int(dataList[i]*127)))
-          
-  
-  # Assemble command (send waveform data)
-  #commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength), datastring)
+    value =  dataList[i]
+    data += bytearray(struct.pack("f", value))
+    
   commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength))# + datastring
 
   print(commandString)
@@ -359,7 +330,7 @@ def program_trace(xdata,ydata,**kwargs):
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
   session.write("WLIST:WAVEFORM:DELETE ALL")
   session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
-  session.write_raw( str.encode(commandString+datastring))
+  session.write_raw( str.encode(commandString) + data )
   #session.write_raw( str.encode(datastring) )
   
   if(0):
