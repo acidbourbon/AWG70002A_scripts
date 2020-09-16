@@ -151,8 +151,18 @@ def set_sample_rate(sample_rate):
   print("read back sample rate (Hz):")
   read_back = session.ask("CLOCK:SRATE?")
   print(read_back)
+  
   if( float(read_back) == float(sample_rate)):
     print("success!")
+    return 1
+  else:
+    sleep(2)
+    read_back = session.ask("CLOCK:SRATE?")
+    print(read_back)
+  
+  if( float(read_back) == float(sample_rate)):
+    print("success!")
+    return 1
   else:
     raise NameError("could not set desired sample rate!")
   
@@ -175,6 +185,8 @@ def program_trace(xdata,ydata,**kwargs):
   
   
   MAX_MEM_SIZE = 262144
+  
+  MIN_SAMPLE_LEN = 2400
   
   mem_size     = MAX_MEM_SIZE
   
@@ -222,14 +234,16 @@ def program_trace(xdata,ydata,**kwargs):
   target_x , target_y = resample(target_x,xdata,ydata,fill_value=idle_val)
   
 
-  if( np.max(np.abs(target_y)) > 0.5):
-    print("############################################")
-    print("## WARNING: Waveform on ch {:d} will clip!!! ##".format(trace))
-    print("############################################")
+  #if( np.max(np.abs(target_y)) > 0.5):
+    #print("############################################")
+    #print("## WARNING: Waveform on ch {:d} will clip!!! ##".format(trace))
+    #print("############################################")
 
   # clip to allowed value range
-  target_y[target_y > 0.5] = 0.5
-  target_y[target_y < -0.5] = -0.5
+  #target_y[target_y > 0.5] = 0.5
+  #target_y[target_y < -0.5] = -0.5
+  target_y[target_y > 1] = 1
+  target_y[target_y < -1] = -1
 
 
   ##volt        = float(kwargs.get("volt",0.5))
@@ -249,20 +263,21 @@ def program_trace(xdata,ydata,**kwargs):
     target_y = -target_y
 
 
-  idle_val_dac = idle_val
 
   #n_delay = int(delay*sample_rate) 
-  n_offset = int(offset*sample_rate) 
+  #n_offset = int(offset*sample_rate) 
   n = int(len(target_x))
   
   # sample len must be a multiple of 128
-  sample_len = next_int_mult_128(n)
-  sample_len = np.min([sample_len,mem_size])
+  #sample_len = next_int_mult_128(n)
+  #sample_len = np.min([sample_len,mem_size])
   #print("sample len :{:d}".format(sample_len))
   
   #dataList = [-100 for i in range(sample_len)]
   
-  dataList = idle_val_dac*np.ones(sample_len)
+  sample_len = np.max([MIN_SAMPLE_LEN,n])
+  
+  dataList = idle_val*np.ones(sample_len)
   
   n_ = np.min([n,sample_len])
   
@@ -300,8 +315,8 @@ def program_trace(xdata,ydata,**kwargs):
   datastring = ""
   recordLength = 2400    # [samples] (min. 2400 samples required)
   
-  leadingZeroes = 5      # [samples]
-  maxWaveformLength = leadingZeroes + 2000
+  #leadingZeroes = 5      # [samples]
+  maxWaveformLength = 2400
 
   for i in range(maxWaveformLength):
       hexstring = ""
