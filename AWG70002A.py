@@ -107,8 +107,6 @@ def run():
  
   print("RUN!")
   session.write("AWGControl:RUN")
-  session.write("OUTPUT1:STATE 1")
-  session.write("OUTPUT2:STATE 1")
 
   
   
@@ -119,8 +117,8 @@ def stop():
  
   print("STOP!")
   session.write("AWGControl:STOP")
-  session.write("OUTPUT1:STATE 0")
-  session.write("OUTPUT2:STATE 0")
+  #session.write("OUTPUT1:STATE 0")
+  #session.write("OUTPUT2:STATE 0")
   
  
 def set_sample_rate(sample_rate):
@@ -128,6 +126,7 @@ def set_sample_rate(sample_rate):
     raise NameError("there is no running communication session with AWG!")
   session = local_objects["session"]
   
+  sample_rate = round(int(sample_rate))
   
   if ((sample_rate < 1e9) or (sample_rate > 8e9)):
     raise NameError('sample rate must be >=1e9 and <= 8e9')
@@ -139,7 +138,8 @@ def set_sample_rate(sample_rate):
   read_back = session.ask("CLOCK:SRATE?")
   print(read_back)
   
-  if( float(read_back) == float(sample_rate)):
+  #check if sample rate could be set with precision better than 1/1000
+  if( (abs(float(read_back) - float(sample_rate))/float(sample_rate))<1./1000  ):
     print("success!")
     return 1
   else:
@@ -171,9 +171,10 @@ def program_trace(xdata,ydata,**kwargs):
   session = local_objects["session"]
   
   
-  MAX_MEM_SIZE = 262144
+  MAX_MEM_SIZE = 262144 # this might not actually be true for the TEK device
   
   MIN_SAMPLE_LEN = 2400
+  #MIN_SAMPLE_LEN = 1024
   
   mem_size     = MAX_MEM_SIZE
   
@@ -189,6 +190,7 @@ def program_trace(xdata,ydata,**kwargs):
   
   waveformName = "ExtWaveformCh{:d}".format(trace)
 
+  sample_multiplier = 1
   
   if(period != 0):
     #mem_size = next_int_mult_128(int(period * sample_rate))
@@ -198,10 +200,16 @@ def program_trace(xdata,ydata,**kwargs):
     
     sample_rate = 8e9
 
-    mem_size = prev_int_mult_128(int(period * sample_rate))
+    #mem_size = prev_int_mult_128(int(period * sample_rate))
+    mem_size = int(period * sample_rate)
     mem_size = np.min([mem_size,MAX_MEM_SIZE])
     hypothetical_period = 1/sample_rate*mem_size
     rate_scaler = hypothetical_period/period
+    
+    sample_multiplier = int( MIN_SAMPLE_LEN / mem_size ) + 1
+    
+    #print("sample multiplier: {:d}".format(sample_multiplier))
+    print("have to concatenate {:d} samples into memory to achieve desired period".format(sample_multiplier))
     
     sample_rate *= rate_scaler
     sample_rate = int(sample_rate)
@@ -244,7 +252,13 @@ def program_trace(xdata,ydata,**kwargs):
   n = int(len(target_x))
   
   
-  sample_len = np.max([MIN_SAMPLE_LEN,n])
+  
+  sample_len = 0
+  if(period == 0):
+    sample_len = np.max([MIN_SAMPLE_LEN,n])
+  else:
+    sample_len = int(period * sample_rate)
+    # the min sample length is controlled via sample_multiplier
   
   dataList = idle_val*np.ones(sample_len)
   
@@ -261,28 +275,32 @@ def program_trace(xdata,ydata,**kwargs):
   data = bytearray()
   
 
-  maxWaveformLength = sample_len
+  waveform_length = sample_len * sample_multiplier
+  print("waveform length: {:d}".format(waveform_length))
+  print("sample length: {:d}".format(sample_len))
 
-  for i in range(maxWaveformLength):
+  for i in range(sample_len):
     value =  dataList[i]
     data += bytearray(struct.pack("f", value))
     
-  commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength))# + datastring
+  commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}".format(waveformName, waveform_length, len(str(4*waveform_length)), str(4*waveform_length))# + datastring
 
   #print(commandString)
   
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
-  session.write("WLIST:WAVEFORM:DELETE {}".format(waveformName))
-  session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
-  session.write_raw( str.encode(commandString) + data )
+  session.write("WLIST:WAVEFORM:DELETE \"{}\"".format(waveformName))
+  #session.write("WLIST:WAVEFORM:DELETE ALL")
+  session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, waveform_length))
+  session.write_raw( str.encode(commandString) + (data*sample_multiplier) )
   
   #if(0):
     #print("read back:")
-    #print("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength))
-    #print(session.ask("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, maxWaveformLength)))
+    #print("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, waveform_length))
+    #print(session.ask("WLIST:WAVEFORM:DATA? \"{}\" ,0 ,{}".format(waveformName, waveform_length)))
 
   
   session.write("SOURCE{:d}:CASSET:WAVEFORM \"{}\"".format(trace,waveformName))
   #session.write("SOURCE2:CASSET:WAVEFORM \"{}\"".format(waveformName))
+  session.write("OUTPUT{:d}:STATE 1".format(trace))
   
   
