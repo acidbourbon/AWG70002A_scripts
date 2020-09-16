@@ -71,7 +71,6 @@ def open_session(ip):
   
   # Open socket, create waveform, send data, read back and close socket
   print("connect to device ...")
-  #session = sock.SCPI_sock_connect(ip)
   session = vxi11.Instrument('TCPIP::{}::INSTR'.format(ip))
   session.timeout = 500
   session.clear()
@@ -225,27 +224,14 @@ def program_trace(xdata,ydata,**kwargs):
   target_x , target_y = resample(target_x,xdata,ydata,fill_value=idle_val)
   
 
-  #if( np.max(np.abs(target_y)) > 0.5):
-    #print("############################################")
-    #print("## WARNING: Waveform on ch {:d} will clip!!! ##".format(trace))
-    #print("############################################")
+  if( np.max(np.abs(target_y)) > 0.25):
+    print("############################################")
+    print("## WARNING: Waveform on ch {:d} will clip!!! ##".format(trace))
+    print("############################################")
 
-  # clip to allowed value range
-  #target_y[target_y > 0.5] = 0.5
-  #target_y[target_y < -0.5] = -0.5
-  target_y[target_y > 1] = 1
-  target_y[target_y < -1] = -1
+  target_y[target_y > .25] = .25
+  target_y[target_y < -.25] = -.25
 
-
-  ##volt        = float(kwargs.get("volt",0.5))
-  #offset = 0
-  #volt = np.max(np.abs(target_y))
-  #idle_val = idle_val/volt
-  #target_y = target_y*127./volt
-  #volt = volt*2
-  
-  #volt = np.max(np.abs(target_y))
-  #volt = volt*2
   target_y = target_y/.25
   idle_val = idle_val/.25
 
@@ -256,16 +242,8 @@ def program_trace(xdata,ydata,**kwargs):
 
 
 
-  #n_delay = int(delay*sample_rate) 
-  #n_offset = int(offset*sample_rate) 
   n = int(len(target_x))
   
-  # sample len must be a multiple of 128
-  #sample_len = next_int_mult_128(n)
-  #sample_len = np.min([sample_len,mem_size])
-  #print("sample len :{:d}".format(sample_len))
-  
-  #dataList = [-100 for i in range(sample_len)]
   
   sample_len = np.max([MIN_SAMPLE_LEN,n])
   
@@ -274,30 +252,6 @@ def program_trace(xdata,ydata,**kwargs):
   n_ = np.min([n,sample_len])
   
   dataList[0:n_] = target_y[0:n_]
-  #dataList = dataList.astype(np.int).tolist()
-  #dataList = dataList.tolist()
-  #dataList = dataList.astype('float32')
-  
-  #dataString = ",".join(map(str,dataList))
-  #cmdString = ":TRAC{:d}:DATA 1,{:d},{}".format(trace,n_offset,dataString)
-  
-  
-  
-  #print(session.ask(":TRAC{:d}:CAT?".format(trace)))
-  #session.write(":TRAC{:d}:DEL:ALL".format(trace))
-  #session.write(":TRAC{:d}:DEF 1,{:d},{:d}".format(trace,mem_size,idle_val_dac))
-  
-  ##delete all traces with wrong mem_size
-  #for i in range(1,5):
-    #cat_answer = session.ask(":TRAC{:d}:CAT?".format(i))
-    #cat_answer.replace("\n","")
-    #cat_answer.replace("\r","")
-    #cat_answer.replace(" ","")
-    ##print(cat_answer)
-    #if( (cat_answer != "1,{:d}".format(mem_size))  and (cat_answer != "0,0" )): 
-      #print("delete trace {:d}, because wrong mem size / wrong period".format(i))
-      #session.write(":TRAC{:d}:DEL:ALL".format(i))
-  
   
   #send data
   print("sending data ...")
