@@ -21,6 +21,24 @@ waveformName = 'ExtWaveform2400'
 
 
 
+
+def reverse_8bits(n):
+        result = 0
+        for i in range(8):
+            result <<= 1
+            result |= n & 1
+            n >>= 1
+        return result
+      
+def reverse_32bits(n):
+        result = 0
+        for i in range(32):
+            result <<= 1
+            result |= n & 1
+            n >>= 1
+        return result
+
+
 def spice_float(argument):
    
   if( isinstance(argument,str)):
@@ -284,7 +302,7 @@ def program_trace(xdata,ydata,**kwargs):
   dataList[0:n_] = target_y[0:n_]
   #dataList = dataList.astype(np.int).tolist()
   #dataList = dataList.tolist()
-  dataList = dataList.astype('float32')
+  #dataList = dataList.astype('float32')
   
   #dataString = ",".join(map(str,dataList))
   #cmdString = ":TRAC{:d}:DATA 1,{:d},{}".format(trace,n_offset,dataString)
@@ -315,6 +333,7 @@ def program_trace(xdata,ydata,**kwargs):
   substring = ""
   datastring = ""
   #recordLength = 2400    # [samples] (min. 2400 samples required)
+  #data = []
   
   #leadingZeroes = 5      # [samples]
   maxWaveformLength = sample_len
@@ -324,18 +343,24 @@ def program_trace(xdata,ydata,**kwargs):
       hexstring = hexval[2:] # discard HEX prefix
         
       for j in range(3,-1,-1): # split into 4 times 8 bit and convert to char
+      #for j in range(0,4): # split into 4 times 8 bit and convert to char
           substring = hexstring[j*2:j*2+2]
           datastring += chr(int(substring,16)) # add chars to data string
+          #data  += [int(substring,16)] # add chars to data string
+      #datastring += chr(reverse_8bits(int(dataList[i]*127)))
           
   
   # Assemble command (send waveform data)
-  commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength), datastring)
-  print(commandString)
+  #commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength), datastring)
+  commandString = "WLIST:WAVEFORM:DATA \"{}\",0,{},#{}{}".format(waveformName, maxWaveformLength, len(str(4*maxWaveformLength)), str(4*maxWaveformLength))# + datastring
 
+  print(commandString)
+  
   # Open socket, create waveform, send data, read back, start playing waveform and close socket
   session.write("WLIST:WAVEFORM:DELETE ALL")
   session.write("WLIST:WAVEFORM:NEW \"{}\" ,{}".format(waveformName, sample_len))
-  session.write( commandString)
+  session.write_raw( str.encode(commandString+datastring))
+  #session.write_raw( str.encode(datastring) )
   
   if(0):
     print("read back:")
