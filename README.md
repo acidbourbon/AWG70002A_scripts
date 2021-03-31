@@ -13,6 +13,50 @@
 sudo pip3 install numpy scipy pyltspice python-vxi11
 ```
 
+## The clients on either Windows/Linux
+
+The below scripts have been written and tested on a Linux machine which is in the same
+network as the AWG.
+The scripts have also been proven to work on a windows machine with the IDLE Python3 release for Windows.
+
+For the scripts to properly communicate with the server they need to be called with with the "ip" argument.
+The given ip is the ip of the AWG:
+```
+./pulser.py       ip=192.168.0.123 <further arguments>
+./send_csv.py     ip=192.168.0.123 <further arguments>
+./send_ltspice.py ip=192.168.0.123 <further arguments>
+```
+If you don't want to type the ip argument all the time, you can export the ip as an environment variable once:
+```
+export AWG70002A_IP=192.168.0.123
+```
+
+You can also use the AWG70002 module directly in python3. The syntax is the same as the command line scripts.
+Or you can directly send numpy data vectors to the AWG (see below for more detailed example).
+
+```python
+import AWG70002A as awg
+# the python functions behind the individual utility .py scripts
+awg.pulser(ip="192.168.0.123", trace=1, width="20n", delay="100n")
+awg.send_csv(ip="192.168.0.123", trace=2, file="waveform.csv")
+awg.send_ltspice(ip="192.168.0.123", trace=3, file="example.raw", signal="V(output)")
+
+# directly send numpy vectors
+awg.send_data(xdata, ydata, ip="192.168.0.123", trace=4)
+
+```
+you get the idea ...
+
+---
+
+LTspice, a Windows application,
+runs perfectly fine on Linux via WINE. 
+(http://ltspice.analog.com/software/LTspiceXVII.exe)
+
+***
+
+
+
 ## pulser.py
 
 - generate square pulses with arbitrary "idle" and "on" levels (-0.25 to 0.25V)
@@ -41,6 +85,29 @@ example usage:
 ```
 ./pulser.py trace=1 width=10n period=50n
 ```
+
+example usage (python module):
+
+```python
+#!/usr/bin/env python3
+
+from AWG70002A import pulser
+
+pulser(
+    ip="192.168.0.208",
+    trace=1,
+    period="2u",
+    width="20n",
+    leading_edge="1n",
+    trailing_edge="5n",
+    on_val="150m",
+    idle_val="-20m",
+    delay="10n",
+    invert=0
+)
+
+```
+
 
 optional parameters/standard values:
 ```
@@ -193,6 +260,53 @@ If a change is detected, the AWG will be re-programmed automatically.
 
 ![Photo](https://github.com/acidbourbon/AWG70002A_scripts/blob/master/pics/watch_changes.png)
 
+## send python/numpy data directly
+
+![Photo](https://github.com/acidbourbon/AWG70002A_scripts/blob/master/pics/gauss_scope.png)
+
+Recorded waveform was generated with the following python code:
+
+```python
+#!/usr/bin/env python3
+
+import numpy as np
+from matplotlib import pyplot as plt
+
+import AWG20007A as awg
+awg_ip = "192.168.0.208"
+
+##################################################
+##                 gauss pulse                  ##
+##################################################
+
+
+def gauss(x, **kwargs):
+  mu = kwargs.get("mu",0)
+  sigma = kwargs.get("sigma",1)
+  ## default amplitude A generates bell curve with area = 1
+  A = kwargs.get("A",1./(sigma*(2.*np.pi)**0.5)) 
+  return A*np.exp(-(x-mu)**2/(2.*sigma**2))
+
+
+
+period = 1e-6
+
+x=np.arange(0,period,0.1e-9)
+
+y=gauss(x,sigma=20e-9,mu=300e-9,A=200e-3)
+
+plt.plot(x*1e9,y)
+plt.xlabel("time (ns)")
+plt.ylabel("voltage (V)")
+plt.show()
+
+awg.send_data(x,y,
+              trace=1,
+              ip=awg_ip,
+              period=period)
+
+```
+![Photo](https://github.com/acidbourbon/AWG70002A_scripts/blob/master/pics/gauss_plot.png)
 
 ## Acknowledgements
 
